@@ -2,7 +2,7 @@
 import logging
 
 import utils.config as config
-import commands.ping
+import commands.matches
 from utils.bot import bot, setup_logging
 
 logger = logging.getLogger(__file__)
@@ -11,7 +11,7 @@ logger = logging.getLogger(__file__)
 def main() -> None:
     setup_logging()
 
-    commands.ping.load()
+    commands.matches.load()
 
     discord_token = config.config.get('DISCORD_TOKEN')
     if discord_token is None:

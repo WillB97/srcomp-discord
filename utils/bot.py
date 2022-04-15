@@ -28,7 +28,8 @@ async def on_command_error(ctx: commands.Context, exception: commands.CommandErr
         await ctx.send(f"A required argument '{exception.param}' is missing")
         await ctx.send_help(ctx.command)  # print corresponding command help
     else:
-        raise exception
+        logger.exception(exception)
+        await ctx.send(f"An exception occurred: {exception}")
 
 
 @bot.event

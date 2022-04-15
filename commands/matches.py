@@ -1,0 +1,142 @@
+import logging
+from typing import List, Optional, NamedTuple
+from datetime import datetime, timezone
+from collections import defaultdict
+
+import requests
+from discord.ext import commands
+
+from utils.bot import bot, admin_command
+import utils.config as config
+from utils.channels import get_team_channel, log_error_and_reply
+
+logger = logging.getLogger(__file__)
+
+
+class TeamMatch(NamedTuple):
+    start_time: datetime
+    num: int
+    corner: int
+    arena: str
+    name: str
+
+
+def load() -> None:
+    """ A no-op to stop linters complaining
+    """
+    pass
+
+
+def format_team_matches(tla: str, matches: List[TeamMatch], all: bool = False) -> Optional[str]:
+    if not(matches):
+        return None
+
+    text = f"Hello {tla}, your matches "
+    text += "are:\n" if all else "for today are:\n"
+    text += "```\n"
+
+    for match in matches:
+        if all:
+            text += f"{match.start_time.astimezone():%d/%m %H:%M}\t"
+        else:
+            text += f"{match.start_time.astimezone():%H:%M}\t"
+        text += f"{match.name}\t corner: {match.corner}\n"
+
+    text += "```"
+    return text
+
+
+@bot.command(name='announce')
+@admin_command
+async def announce_cmd(ctx: commands.Context, all: Optional[str] = None) -> None:
+    """ Announce upcoming matches to teams, defaults to only the current day
+    """
+    missing_teams = []
+    successful_teams = []
+
+    send_all = (all == 'all')
+    http_api = config.config.get('HTTP_API')
+    if http_api is None:
+        await log_error_and_reply(ctx, 'HTTP_API is not defined in environment')
+        return
+
+    if not http_api.endswith('/'):
+        http_api += '/'
+
+    with ctx.typing():  # provides feedback that the bot is processing
+        r = requests.get(http_api + 'matches')
+        if r.status_code != 200:
+            await log_error_and_reply(ctx, 'HTTP_API is not accessible')
+            return
+
+        matches = r.json().get('matches')
+        if matches is None:
+            await log_error_and_reply(ctx, "Couldn't find matches")
+            return
+
+        # reindex by team
+        team_matches = defaultdict(list)
+        for match in matches:
+            for corner, team in enumerate(match['teams']):
+                if team is None or team == '???':
+                    continue
+
+                team_matches[team].append(TeamMatch(
+                    datetime.fromisoformat(match['times']['game']['start']),
+                    match['num'],
+                    corner,
+                    match['arena'],
+                    match['display_name']
+                ))
+
+        current_time = datetime.now(timezone.utc)
+        for team, match_data in team_matches.items():
+            # filter out past matches
+            future_matches = [x for x in match_data if x.start_time > current_time]
+
+            if not send_all:
+                # filter matches to current day
+                future_matches = [
+                    x for x in future_matches
+                    if x.start_time.date() == current_time.date()
+                ]
+
+            # send to team channel
+            team_channel = await get_team_channel(ctx, team)
+            if team_channel is None:
+                # accumulate missing team channels
+                missing_teams.append(team)
+                continue
+
+            team_text = format_team_matches(team, future_matches, send_all)
+            if team_text is not None:
+                await team_channel.send()
+                successful_teams.append(team)
+
+    await ctx.reply(
+        f"Successfully announced to {len(successful_teams)} teams.\n"
+        + (f"Failed to find: {missing_teams}" if missing_teams else "")
+    )
+
+
+@bot.command(name='state')
+@admin_command
+async def state_cmd(ctx: commands.Context) -> None:
+    """ Print the current state of the APIs
+    """
+    # API link defined and fetchable
+    http_api = config.config.get('HTTP_API')
+    if http_api is None:
+        await log_error_and_reply(ctx, 'HTTP_API is not defined in environment')
+        return
+
+    with ctx.typing():  # provides feedback that the bot is processing
+        r = requests.get(http_api)
+        api_accessible = (r.status_code == 200)
+
+    await ctx.send(
+        "```"
+        f"HTTP API: {http_api}\n"
+        f"API accessible: {api_accessible}\n"
+        "```"
+    )
