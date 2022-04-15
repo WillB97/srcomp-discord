@@ -2,7 +2,7 @@ import logging
 
 from discord.ext import commands
 
-import config
+import utils.config as config
 
 logger = logging.getLogger(__file__)
 
@@ -41,7 +41,7 @@ async def on_ready() -> None:
 
 
 def setup_logging() -> None:
-    formatter = logging.Formatter('%(asctime)s - %(levelname)% - %(message)s')
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
@@ -49,8 +49,8 @@ def setup_logging() -> None:
     root_logger = logging.getLogger()
     root_logger.addHandler(console_handler)
 
-    if config.config.get('LOG_FILE'):
-        file_handler = logging.FileHandler(config.config['LOG_FILE'])
+    if (log := config.config.get('LOG_FILE')) is not None:
+        file_handler = logging.FileHandler(log)
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
 

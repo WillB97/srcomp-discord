@@ -5,7 +5,7 @@ import discord
 from discord import TextChannel
 from discord.ext import commands
 
-import config
+import utils.config as config
 
 logger = logging.getLogger(__file__)
 
