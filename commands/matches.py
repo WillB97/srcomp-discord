@@ -8,7 +8,7 @@ from discord.ext import commands
 
 from utils.bot import bot, admin_command
 import utils.config as config
-from utils.channels import get_team_channel, log_error_and_reply
+from utils.channels import get_channel, get_team_channel, log_error_and_reply
 
 logger = logging.getLogger(__file__)
 
@@ -150,7 +150,14 @@ async def state_cmd(ctx: commands.Context) -> None:
     shepherding_channel = config.config.get('SHEPHERDING_CHANNEL')
     matches_channel = config.config.get('MATCHES_CHANNEL')
 
-    print(matches_channel)
+    if shepherding_channel is not None:
+        shepherding_obj = await get_channel(ctx, shepherding_channel)
+        if shepherding_obj:
+            shepherding_channel = f"<#{shepherding_obj.id}>"
+    if matches_channel is not None:
+        matches_obj = await get_channel(ctx, matches_channel)
+        if matches_obj:
+            matches_channel = f"<#{matches_obj.id}>"
 
     await ctx.send(
         "```"
@@ -158,9 +165,9 @@ async def state_cmd(ctx: commands.Context) -> None:
         f"API accessible: {api_accessible}\n"
         f"Current delay: {delay} seconds\n"
         f"Stream URL: {http_stream}\n"
-        # stream active
+        f"Stream active: {config.config.get('stream_connected', 'False')}\n"
         f"Publishing: {publish_enable}\n"
+        "```"
         f"Shepherding channel: {shepherding_channel}\n"
         f"Matches channel: {matches_channel}\n"
-        "```"
     )
