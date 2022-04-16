@@ -1,3 +1,4 @@
-discord.py
+discord.py>=1.7,<2
 python-dotenv
 requests
+aiohttp-sse-client==0.2.1
