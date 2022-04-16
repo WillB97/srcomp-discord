@@ -130,13 +130,37 @@ async def state_cmd(ctx: commands.Context) -> None:
         await log_error_and_reply(ctx, 'HTTP_API is not defined in environment')
         return
 
+    http_stream = config.config.get('HTTP_STREAM')
+    if http_stream is None:
+        await log_error_and_reply(ctx, 'HTTP_STREAM is not defined in environment')
+        return
+
     with ctx.typing():  # provides feedback that the bot is processing
-        r = requests.get(http_api)
+        if not http_api.endswith('/'):
+            http_api += '/'
+
+        r = requests.get(http_api + 'current')
         api_accessible = (r.status_code == 200)
+        if api_accessible:
+            delay = r.json().get('delay', 'NA')
+        else:
+            delay = 'NA'
+
+    publish_enable = 'enabled' if config.config.get('PUBLISH_STREAM') else 'disabled'
+    shepherding_channel = config.config.get('SHEPHERDING_CHANNEL')
+    matches_channel = config.config.get('MATCHES_CHANNEL')
+
+    print(matches_channel)
 
     await ctx.send(
         "```"
         f"HTTP API: {http_api}\n"
         f"API accessible: {api_accessible}\n"
+        f"Current delay: {delay} seconds\n"
+        f"Stream URL: {http_stream}\n"
+        # stream active
+        f"Publishing: {publish_enable}\n"
+        f"Shepherding channel: {shepherding_channel}\n"
+        f"Matches channel: {matches_channel}\n"
         "```"
     )
