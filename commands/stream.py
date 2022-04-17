@@ -1,13 +1,16 @@
 import json
+import asyncio
 import logging
 from typing import Optional
+from datetime import datetime, timezone
 
 from discord import TextChannel
 from discord.ext import commands
 from aiohttp_sse_client import client as sse_client
 
 import utils.config as config
-from utils.bot import bot, admin_command
+from utils.bot import bot, admin_command, get_channel, get_team_channel
+from commands.matches import TeamMatch
 
 logger = logging.getLogger(__file__)
 
@@ -92,10 +95,60 @@ async def watch_event_stream() -> None:
                         # supress handling events when publishing is disabled
                         continue
 
-                    for match in json.loads(event.data):
-                        print(match['display_name'], match['teams'])
-
+                    await process_event_stream(event.data)
     finally:
         # track that the stream failed
         config.config['stream_connected'] = 'False'
         logger.error("Stream disconnected")
+
+
+async def process_event_stream(match_data: str) -> None:
+    announcable_matches = []
+    for match in json.loads(match_data):
+        logger.info(f"New shepherding: {match['teams']}")
+        for corner, team in enumerate(match['teams']):
+            if team is None or team == '???':
+                continue
+
+            match_name = match['display_name']
+
+            announcable_matches.append((team, TeamMatch(
+                datetime.fromisoformat(match['times']['game']['start']),
+                match['num'],
+                corner,
+                match['arena'],
+                match_name
+            )))
+
+        # message shepherding channel
+        if shepherding := config.config.get('SHEPHERDING_CHANNEL'):
+            channels = await get_channel(bot, shepherding)
+            team_str = ', '.join(x for x in match['teams'] if x)
+            for channel in channels:
+                await channel.send(
+                    f"Next match: {match_name} between {team_str}"
+                )
+
+        # message match channel
+        if match_chan := config.config.get('MATCHES_CHANNEL'):
+            channels = await get_channel(bot, match_chan)
+            delay = (
+                datetime.fromisoformat(match['times']['game']['start'])
+                - datetime.now(timezone.utc)
+            ).total_seconds()
+            msg = f"{match_name} is starting now"
+            for channel in channels:
+                asyncio.get_running_loop().call_later(
+                    delay,
+                    asyncio.create_task,
+                    channel.send(msg),
+                )
+
+    for tla, match in announcable_matches:
+        # send messages to team channels
+        team_channels = await get_team_channel(bot, tla)
+        for team_channel in team_channels:
+            await team_channel.send(
+                f"Your next match is starting at {match.start_time.astimezone():%H:%M}, "
+                "you should head down now"
+            )

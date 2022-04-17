@@ -1,5 +1,8 @@
 import logging
+from typing import List
 
+import discord
+from discord import TextChannel
 from discord.ext import commands
 
 import utils.config as config
@@ -59,3 +62,40 @@ def setup_logging() -> None:
         root_logger.setLevel(logging.DEBUG)
     else:
         root_logger.setLevel(logging.INFO)
+
+
+async def get_channel(
+    bot: commands.Bot,
+    channel_name: str,
+) -> List[TextChannel]:
+    if 'testing' in config.mode:
+        # always DM owner
+        app_info = await bot.application_info()
+        owner_dm = app_info.owner.dm_channel
+        if owner_dm:
+            return [owner_dm]
+        return []
+
+    channels = []
+
+    for guild in bot.guilds:
+        channel = discord.utils.get(
+            guild.channels,
+            name=channel_name,
+        )
+        if isinstance(channel, TextChannel):
+            channels.append(channel)
+
+    if not channels:
+        logger.warning(f"Channel {channel_name} not found in any guild")
+
+    return channels
+
+
+async def get_team_channel(
+    bot: commands.Bot,
+    tla: str,
+) -> List[TextChannel]:
+    channel = await get_channel(bot, f"{config.config.get('TEAM_PREFIX', 'team-')}{tla.lower()}")
+
+    return channel

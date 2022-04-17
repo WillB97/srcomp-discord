@@ -48,7 +48,7 @@ async def get_team_channel(
     ctx: commands.Context,
     tla: str,
 ) -> Optional[TextChannel]:
-    channel = await get_channel(ctx, f"{config.config.get('TEAM_PREFIX', 'team-')}{tla}")
+    channel = await get_channel(ctx, f"{config.config.get('TEAM_PREFIX', 'team-')}{tla.lower()}")
 
     return channel
 
