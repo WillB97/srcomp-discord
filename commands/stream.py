@@ -81,25 +81,31 @@ async def watch_event_stream() -> None:
         logger.error('HTTP_STREAM is not defined in environment')
         return
 
-    # TODO retry logic
-    try:
-        async with sse_client.EventSource(
-            config.config['HTTP_STREAM'],
-            timeout=0,
-        ) as event_source:
-            logger.info(f"Event stream connected to {config.config['HTTP_STREAM']}")
-            config.config['stream_connected'] = 'True'
-            async for event in event_source:
-                if event.message == 'current-shepherding-matches':
-                    if config.config.get('PUBLISH_STREAM', 'False') != 'True':
-                        # supress handling events when publishing is disabled
-                        continue
+    while True:
+        try:
+            async with sse_client.EventSource(
+                config.config['HTTP_STREAM'],
+                timeout=0,
+            ) as event_source:
+                logger.info(f"Event stream connected to {config.config['HTTP_STREAM']}")
+                config.config['stream_connected'] = 'True'
+                async for event in event_source:
+                    if event.message == 'current-shepherding-matches':
+                        if config.config.get('PUBLISH_STREAM', 'False') != 'True':
+                            # supress handling events when publishing is disabled
+                            continue
 
-                    await process_event_stream(event.data)
-    finally:
-        # track that the stream failed
-        config.config['stream_connected'] = 'False'
-        logger.error("Stream disconnected")
+                        await process_event_stream(event.data)
+        except asyncio.CancelledError:
+            raise
+        except BaseException as e:
+            logger.exception(e)
+        finally:
+            # track that the stream failed
+            config.config['stream_connected'] = 'False'
+            logger.error("Stream disconnected")
+
+        await asyncio.sleep(2)
 
 
 async def process_event_stream(match_data: str) -> None:
