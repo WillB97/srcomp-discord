@@ -14,6 +14,8 @@ logger = logging.getLogger(__file__)
 
 
 class TeamMatch(NamedTuple):
+    """ A team's match
+    """
     start_time: datetime
     num: int
     corner: int
@@ -28,6 +30,8 @@ def load() -> None:
 
 
 def format_team_matches(tla: str, matches: List[TeamMatch], all: bool = False) -> Optional[str]:
+    """ Format the matches to be announced to a team as a string in a code block
+    """
     if not(matches):
         return None
 
@@ -50,6 +54,7 @@ def format_team_matches(tla: str, matches: List[TeamMatch], all: bool = False) -
 @admin_command
 async def announce_cmd(ctx: commands.Context, all: Optional[str] = None) -> None:
     """ Announce upcoming matches to teams, defaults to only the current day
+        - all: set to all to announce all upcomming matches, not just today's
     """
     missing_teams = []
     successful_teams = []

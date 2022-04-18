@@ -18,6 +18,7 @@ _admin_required = commands.has_role(config.config.get('ADMIN_ROLE', 'Blue Shirt'
 _admin_owner_required = commands.check_any(_admin_required, commands.is_owner())
 
 if 'testing' in config.mode:
+    # Allow DMs
     admin_command = _admin_owner_required
 else:
     admin_command = commands.check_any(commands.guild_only(), _admin_owner_required)
@@ -45,8 +46,12 @@ async def on_ready() -> None:
 
 
 def setup_logging() -> None:
+    """ Print logging from all loggers to terminal and file if LOG_FILE is set.
+        Logging level is increased from INFO to DEBUG if DISCORD_MODE is set to debug.
+    """
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
+    # Create a handler to output to console
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(formatter)
 
@@ -54,6 +59,7 @@ def setup_logging() -> None:
     root_logger.addHandler(console_handler)
 
     if (log := config.config.get('LOG_FILE')) is not None:
+        # Create a handler to also output to file
         file_handler = logging.FileHandler(log)
         file_handler.setFormatter(formatter)
         root_logger.addHandler(file_handler)
@@ -68,6 +74,8 @@ async def get_channel(
     bot: commands.Bot,
     channel_name: str,
 ) -> List[TextChannel]:
+    """ Get a channel object when not with a command callback
+    """
     if 'testing' in config.mode:
         # always DM owner
         app_info = await bot.application_info()
@@ -96,6 +104,8 @@ async def get_team_channel(
     bot: commands.Bot,
     tla: str,
 ) -> List[TextChannel]:
+    """ Get the channel for tla when not with a command callback
+    """
     channel = await get_channel(bot, f"{config.config.get('TEAM_PREFIX', 'team-')}{tla.lower()}")
 
     return channel

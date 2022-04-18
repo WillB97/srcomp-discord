@@ -14,6 +14,9 @@ async def get_channel(
     ctx: commands.Context,
     channel_name: str,
 ) -> Optional[TextChannel]:
+    """ Get a channel object
+        In testing mode this is always the channel that the command that the command was run in
+    """
     channel_name = channel_name.lower()  # all text/voice channels are lowercase
     guild = ctx.guild
     if 'testing' in config.mode:
@@ -48,6 +51,8 @@ async def get_team_channel(
     ctx: commands.Context,
     tla: str,
 ) -> Optional[TextChannel]:
+    """ Get the channel for tla
+    """
     channel = await get_channel(ctx, f"{config.config.get('TEAM_PREFIX', 'team-')}{tla.lower()}")
 
     return channel

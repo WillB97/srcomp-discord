@@ -18,7 +18,7 @@ event_stream_task = None
 
 
 def load() -> None:
-    """
+    """ Start task to monitor the event stream
     """
     global event_stream_task
     event_stream_task = bot.loop.create_task(watch_event_stream())
@@ -31,7 +31,8 @@ async def publish_cmd(
     ctx: commands.Context,
     enable: bool = False,
 ) -> None:
-    """
+    """ Set whether events from the event stream generate messages
+        Passing no arguments disables the event stream
     """
     config.config['PUBLISH_STREAM'] = str(enable)
     logger.info(f"Match publishing {'enabled' if enable else 'disabled'}")
@@ -45,7 +46,7 @@ async def set_shepherding_cmd(
     ctx: commands.Context,
     channel: Optional[TextChannel] = None,
 ) -> None:
-    """
+    """ Set the channel to post shepherding notifications to, omit channel to disable.
     """
     # TODO save this to env file
     if channel is None:
@@ -65,7 +66,7 @@ async def set_matches_cmd(
     ctx: commands.Context,
     channel: Optional[TextChannel] = None,
 ) -> None:
-    """
+    """ Set the channel to post match start notifications to, omit channel to disable.
     """
     # TODO save this to env file
     if channel is None:
@@ -77,6 +78,9 @@ async def set_matches_cmd(
 
 
 async def watch_event_stream() -> None:
+    """ Async task to look for current-shepherding-matches events in HTTP_STREAM
+        and produce discord messages for them.
+    """
     if config.config.get('HTTP_STREAM') is None:
         logger.error('HTTP_STREAM is not defined in environment')
         return
@@ -97,8 +101,9 @@ async def watch_event_stream() -> None:
 
                         await process_event_stream(event.data)
         except asyncio.CancelledError:
-            raise
+            raise  # allow the task to be cancelled
         except BaseException as e:
+            # on any error except cancellation, log and attempt to reconnect
             logger.exception(e)
         finally:
             # track that the stream failed
@@ -109,6 +114,8 @@ async def watch_event_stream() -> None:
 
 
 async def process_event_stream(match_data: str) -> None:
+    """ Process match match data from the event stream to produce messages
+    """
     announcable_matches = []
     for match in json.loads(match_data):
         logger.info(f"New shepherding: {match['teams']}")
@@ -129,6 +136,7 @@ async def process_event_stream(match_data: str) -> None:
         # message shepherding channel
         if shepherding := config.config.get('SHEPHERDING_CHANNEL'):
             channels = await get_channel(bot, shepherding)
+            # omit empty corners
             team_str = ', '.join(x for x in match['teams'] if x)
             for channel in channels:
                 await channel.send(
@@ -138,7 +146,7 @@ async def process_event_stream(match_data: str) -> None:
         # message match channel
         if match_chan := config.config.get('MATCHES_CHANNEL'):
             channels = await get_channel(bot, match_chan)
-            delay = (
+            delay = (  # delay until the match is actually starting
                 datetime.fromisoformat(match['times']['game']['start'])
                 - datetime.now(timezone.utc)
             ).total_seconds()
