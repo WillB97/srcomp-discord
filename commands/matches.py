@@ -115,7 +115,7 @@ async def announce_cmd(ctx: commands.Context, all: Optional[str] = None) -> None
 
             team_text = format_team_matches(team, future_matches, send_all)
             if team_text is not None:
-                await team_channel.send()
+                await team_channel.send(team_text)
                 successful_teams.append(team)
 
     await ctx.reply(
